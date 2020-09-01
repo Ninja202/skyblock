@@ -6,6 +6,8 @@ import net.minecraft.block.EndPortalFrameBlock;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.nbt.ListTag;
 import net.minecraft.server.world.ServerLightingProvider;
+import net.minecraft.structure.NetherFortressGenerator;
+import net.minecraft.structure.BastionTreasureData;
 import net.minecraft.structure.StrongholdGenerator;
 import net.minecraft.structure.StructurePiece;
 import net.minecraft.structure.StructureStart;
@@ -44,7 +46,45 @@ public class SkyBlockUtils {
             heightmapEntry.getValue().setTo(emptyHeightmap);
         }
         processStronghold(chunk, world);
+        processFortress(chunk, world);
+        processBastion(chunk, world);
         Heightmap.populateHeightmaps(chunk, EnumSet.allOf(Heightmap.Type.class));
+    }
+
+    private static void processBastion(ProtoChunk chunk, WorldAccess world) {
+        for (long startPosLong : chunk.getStructureReferences(StructureFeature.BASTION_REMNANT)) {
+            ChunkPos startPos = new ChunkPos(startPosLong);
+            ProtoChunk startChunk = (ProtoChunk) world.getChunk(startPos.x, startPos.z, ChunkStatus.STRUCTURE_STARTS);
+            StructureStart<?> bastion = startChunk.getStructureStart(StructureFeature.BASTION_REMNANT);
+            ChunkPos pos = chunk.getPos();
+            if (bastion != null && bastion.getBoundingBox().intersectsXZ(pos.getStartX(), pos.getStartZ(), pos.getEndX(), pos.getEndZ())) {
+                for (StructurePiece piece : bastion.getChildren()) {
+                    if (piece.toString().contains("bastion/treasure/bases/lava_basin")) {
+                        if (piece.getBoundingBox().intersectsXZ(pos.getStartX(), pos.getStartZ(), pos.getEndX(), pos.getEndZ())) {
+                            generateMagmaSpawner(chunk, piece);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private static void processFortress(ProtoChunk chunk, WorldAccess world) {
+        for (long startPosLong : chunk.getStructureReferences(StructureFeature.FORTRESS)) {
+            ChunkPos startPos = new ChunkPos(startPosLong);
+            ProtoChunk startChunk = (ProtoChunk) world.getChunk(startPos.x, startPos.z, ChunkStatus.STRUCTURE_STARTS);
+            StructureStart<?> fortress = startChunk.getStructureStart(StructureFeature.FORTRESS);
+            ChunkPos pos = chunk.getPos();
+            if (fortress != null && fortress.getBoundingBox().intersectsXZ(pos.getStartX(), pos.getStartZ(), pos.getEndX(), pos.getEndZ())) {
+                for (StructurePiece piece : fortress.getChildren()) {
+                    if (piece instanceof NetherFortressGenerator.BridgePlatform) {
+                        if (piece.getBoundingBox().intersectsXZ(pos.getStartX(), pos.getStartZ(), pos.getEndX(), pos.getEndZ())) {
+                            generateBlazeSpawner(chunk, (NetherFortressGenerator.BridgePlatform) piece);
+                        }
+                    }
+                }
+            }
+        }
     }
 
     private static void processStronghold(ProtoChunk chunk, WorldAccess world) {
@@ -97,6 +137,41 @@ public class SkyBlockUtils {
             System.out.println(tag);
             chunk.addPendingBlockEntityTag(tag);
         }
+    }
+
+    private static void generateMagmaSpawner(ProtoChunk chunk, StructurePiece room) {
+        BlockPos spawnerPos = new BlockPos(room.getBoundingBox().getCenter());
+        setBlockInChunk(chunk, spawnerPos, Blocks.SPAWNER.getDefaultState());
+        CompoundTag spawnerTag = new CompoundTag();
+        spawnerTag.putString("id", "minecraft:mob_spawner");
+        ListTag spawnPotentials = new ListTag();
+        spawnerTag.put("SpawnPotentials", spawnPotentials);
+        CompoundTag spawnEntry = new CompoundTag();
+        spawnPotentials.addTag(0, spawnEntry);
+        CompoundTag entity = new CompoundTag();
+        spawnEntry.put("Entity", entity);
+        entity.putString("id", "minecraft:magma_cube");
+        spawnEntry.putInt("Weight", 1);
+        spawnerTag.put("SpawnData", entity.copy());
+        // System.out.println(room.getBoundingBox().getCenter());
+        setBlockEntityInChunk(chunk, spawnerPos, spawnerTag);
+    }
+
+    private static void generateBlazeSpawner(ProtoChunk chunk, NetherFortressGenerator.BridgePlatform room) {
+        BlockPos spawnerPos = getBlockInStructurePiece(room, 3, 5, 5);
+        setBlockInChunk(chunk, spawnerPos, Blocks.SPAWNER.getDefaultState());
+        CompoundTag spawnerTag = new CompoundTag();
+        spawnerTag.putString("id", "minecraft:mob_spawner");
+        ListTag spawnPotentials = new ListTag();
+        spawnerTag.put("SpawnPotentials", spawnPotentials);
+        CompoundTag spawnEntry = new CompoundTag();
+        spawnPotentials.addTag(0, spawnEntry);
+        CompoundTag entity = new CompoundTag();
+        spawnEntry.put("Entity", entity);
+        entity.putString("id", "minecraft:blaze");
+        spawnEntry.putInt("Weight", 1);
+        spawnerTag.put("SpawnData", entity.copy());
+        setBlockEntityInChunk(chunk, spawnerPos, spawnerTag);
     }
 
     private static void generateStrongholdPortal(ProtoChunk chunk, StrongholdGenerator.PortalRoom room, Random random) {
