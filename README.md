@@ -3,7 +3,7 @@
 SkyBlock is a module for [fabric-carpet](https://github.com/gnembon/fabric-carpet)
 
 ## Features
-- Generator for empty worlds, keeping biomes, structure bounding bounding boxes and end portals
+- Generator for empty worlds, keeping biomes, structure bounding bounding boxes, end portals, Magma, Blaze, and Silverfish spawners
 - Additional wandering trader trades
 - Super long potions (brewed with a redstone block)
 - Block light detector (mode of the daylight detector)
